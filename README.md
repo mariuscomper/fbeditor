@@ -4,8 +4,6 @@ A lightweight, zero-dependency, offline-first HTML editor that runs entirely in 
 
 It's designed for simplicity, speed, and convenience, allowing you to create and edit HTML content without needing an internet connection or complex software.
 
-![Editor Screenshot](https://placehold.co/800x400/3b82f6/ffffff?text=Offline+HTML5+Editor+UI)
-
 ---
 
 ## ✨ Features
