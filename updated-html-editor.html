@@ -336,7 +336,23 @@
           e.preventDefault();
           newDocument();
         }
+        // Clean HTML: Ctrl+Shift+C
+        if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
+          e.preventDefault();
+          cleanHTML();
+          showNotification('HTML Cleaned');
+        }
+        
+        // Wrap Quotes: Ctrl+Shift+Q
+        if (e.ctrlKey && e.shiftKey && (e.key === 'Q' || e.key === 'q')) {
+          e.preventDefault();
+          wrapSelectedTextWithQuotes();
+        }
       });
+            // Automatically focus the preview pane so the user can start typing/pasting
+
+            previewFrame.contentWindow.focus();
+
     }
     
     // Function to capitalize common acronyms
@@ -563,32 +579,41 @@
     }
     
 // Handle paste events in the preview
-    function handlePaste(e) {
-      // Prevent the browser's default paste behavior
-      e.preventDefault();
-      
-      try {
-        const previewDocument = previewFrame.contentDocument || previewFrame.contentWindow.document;
+function handlePaste(e) {
+  // Prevent the browser's default paste behavior immediately
+  e.preventDefault();
+  
+  try {
+    const previewDocument = previewFrame.contentDocument || previewFrame.contentWindow.document;
+    
+    // Get the pasted content as plain text
+    const pastedText = (e.clipboardData || window.clipboardData).getData('text/plain').trim();
+    
+    // Regular expression to check if the pasted text is a URL
+    const urlRegex = /^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/i;
+
+    // --- SMART PASTE LOGIC ---
+    // If the pasted text is a URL, send it to the share input field
+    if (urlRegex.test(pastedText)) {
+      shareUrl.value = pastedText;
+      showNotification('URL detected and added to share field!');
+    } else {
+      // If it's not a URL, treat it as normal text and format it into paragraphs
+      const formattedText = pastedText
+        .split(/\r?\n/)
+        .filter(p => p.trim())
+        .map(p => `<p>${p}</p>`)
+        .join('');
         
-        // Get the pasted content as plain text
-        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-        
-        // Convert newlines into paragraphs for clean insertion
-        const formattedText = text
-          .split(/\r?\n/)
-          .filter(p => p.trim())
-          .map(p => `<p>${p}</p>`)
-          .join('');
-          
-        if (formattedText) {
-          // Insert the clean HTML using the browser's command
-          execCommand(previewDocument, 'insertHTML', false, formattedText);
-        }
-      } catch (err) {
-        console.error('Error handling paste:', err);
+      if (formattedText) {
+        // Insert the clean HTML using our helper command
+        execCommand(previewDocument, 'insertHTML', false, formattedText);
       }
-    }    
-    // Helper to safely execute commands
+    }
+  } catch (err) {
+    console.error('Error handling paste:', err);
+  }
+}// Helper to safely execute commands in the preview document
     function execCommand(doc, command, showUI, value) {
       try {
         doc.execCommand(command, showUI, value);
