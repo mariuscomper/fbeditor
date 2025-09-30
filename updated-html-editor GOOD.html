@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline HTML5 Editor</title>
+  <style>
+    /* Reset and basic styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f5f5f5;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Header styles */
+    header {
+      background-color: #3b82f6;
+      color: white;
+      padding: 1rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    
+    h1 {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    
+    /* Button styles */
+    button {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: background-color 0.2s;
+    }
+    
+    button:hover {
+      background-color: #1d4ed8;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    /* Toolbar styles */
+    .toolbar {
+      background-color: #e5e7eb;
+      padding: 0.5rem 1rem;
+      border-bottom: 1px solid #d1d5db;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .unsaved {
+      color: #ef4444;
+    }
+    
+    .font-size-control {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    
+    .font-button {
+      padding: 0.25rem 0.5rem;
+      background-color: #d1d5db;
+    }
+    
+    .font-button:hover {
+      background-color: #9ca3af;
+    }
+    
+    /* Main editor area */
+    .editor-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    
+    .source-container {
+      height: 100%;
+      padding: 0.5rem;
+      transition: width 0.3s;
+    }
+    
+    .preview-container {
+      height: 100%;
+      padding: 0.5rem;
+      border-left: 1px solid #d1d5db;
+      transition: width 0.3s;
+    }
+    
+    textarea {
+      width: 100%;
+      height: 100%;
+      padding: 0.5rem;
+      font-family: monospace;
+      border: 1px solid #d1d5db;
+      border-radius: 0.25rem;
+      resize: none;
+      outline: none;
+    }
+    
+    textarea:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    }
+    
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.25rem 0.5rem;
+      background-color: #f3f4f6;
+      border: 1px solid #d1d5db;
+      border-bottom: none;
+      border-top-left-radius: 0.25rem;
+      border-top-right-radius: 0.25rem;
+    }
+    
+    .preview-frame {
+      width: 100%;
+      height: calc(100% - 30px);
+      background-color: white;
+      border: 1px solid #d1d5db;
+      border-bottom-left-radius: 0.25rem;
+      border-bottom-right-radius: 0.25rem;
+    }
+    
+    .small-button {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+    }
+    
+    /* Status bar */
+    .status-bar {
+      background-color: #e5e7eb;
+      padding: 0.5rem 1rem;
+      border-top: 1px solid #d1d5db;
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+    
+    .status-content {
+      display: flex;
+      justify-content: space-between;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    
+    /* File input styling */
+    .file-input {
+      display: none;
+    }
+    
+    /* Utility */
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <div class="header-content">
+      <h1>Offline HTML5 Editor</h1>
+      <div class="button-group">
+        <button id="newBtn">New</button>
+        <label for="openFile" class="button" id="openBtn">
+          Open
+          <input type="file" id="openFile" class="file-input" accept=".html,.htm">
+        </label>
+        <button id="saveBtn">Save</button>
+      </div>
+    </div>
+  </header>
+  
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="file-info">
+      <span id="fileName">untitled.html</span>
+      <span id="saveStatus" class="unsaved hidden">(unsaved)</span>
+    </div>
+    
+    <button id="cleanBtn">Clean HTML</button>
+    <button id="formatBtn">Format HTML</button>
+    <button id="convertEntitiesBtn">Convert Entities</button>
+    <button id="formatBreaksBtn">Format Line Breaks</button>
+    <button id="capitalizeAcronymsBtn">CAPITALIZE Acronyms</button>
+    <button id="wrapQuotesBtn">❝ Wrap Quotes ❞</button>
+    <button id="copyTextBtn">Copy All Text</button>
+    
+    <div class="font-size-control">
+      <button class="font-button" id="fontDecrease">-</button>
+      <span>Font</span>
+      <button class="font-button" id="fontIncrease">+</button>
+    </div>
+    
+    <button id="togglePreviewBtn">Hide Preview</button>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 0.5rem;">
+      <input type="url" id="shareUrl" placeholder="Paste article URL here" style="padding: 0.4rem; border: 1px solid #d1d5db; border-radius: 0.25rem;">
+      <button id="shareBtn" title="Share the URL on Facebook">Share on FB</button>
+    </div>
+  </div>
+  
+  <!-- Main editor -->
+  <div class="editor-container">
+    <div class="source-container" id="sourceContainer" style="width: 50%;">
+      <textarea id="htmlSource" spellcheck="false"></textarea>
+    </div>
+    
+    <div class="preview-container" id="previewContainer" style="width: 50%;">
+      <div class="preview-header">
+        <span>Preview (Always Editable)</span>
+      </div>
+      <iframe id="previewFrame" class="preview-frame" sandbox="allow-same-origin"></iframe>
+    </div>
+  </div>
+  
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div class="status-content">
+      <div id="charCount">Characters: 0</div>
+      <div id="lineCount">Lines: 0</div>
+      <div>Keyboard shortcuts: Ctrl+S (Save), Ctrl+N (New)</div>
+    </div>
+  </div>
+
+  <!-- JavaScript - ALL JS CODE MUST BE WITHIN THESE SCRIPT TAGS -->
+  <script>
+    // DOM Elements
+    const htmlSource = document.getElementById('htmlSource');
+    const previewFrame = document.getElementById('previewFrame');
+    const sourceContainer = document.getElementById('sourceContainer');
+    const previewContainer = document.getElementById('previewContainer');
+    const togglePreviewBtn = document.getElementById('togglePreviewBtn');
+    const newBtn = document.getElementById('newBtn');
+    const openFile = document.getElementById('openFile');
+    const saveBtn = document.getElementById('saveBtn');
+    const cleanBtn = document.getElementById('cleanBtn');
+    const formatBtn = document.getElementById('formatBtn');
+    const convertEntitiesBtn = document.getElementById('convertEntitiesBtn');
+    const formatBreaksBtn = document.getElementById('formatBreaksBtn');
+    const wrapQuotesBtn = document.getElementById('wrapQuotesBtn');
+    const copyTextBtn = document.getElementById('copyTextBtn');
+    const capitalizeAcronymsBtn = document.getElementById('capitalizeAcronymsBtn');
+    const fontIncrease = document.getElementById('fontIncrease');
+    const fontDecrease = document.getElementById('fontDecrease');
+    const fileName = document.getElementById('fileName');
+    const saveStatus = document.getElementById('saveStatus');
+    const charCount = document.getElementById('charCount');
+    const lineCount = document.getElementById('lineCount');
+    const shareUrl = document.getElementById('shareUrl');
+    const shareBtn = document.getElementById('shareBtn');
+    
+    // State variables
+    let currentFileName = 'untitled.html';
+    let isSaved = true;
+    let fontSize = 14;
+    let showPreview = true;
+    let isUpdatingSource = false; // Flag to prevent circular updates
+    
+    // Initialize editor
+    function initEditor() {
+      // Set initial content
+      const defaultHTML = '<p>Start typing here...</p>';
+      htmlSource.value = defaultHTML;
+      updatePreview();
+      updateStatusBar();
+      htmlSource.style.fontSize = `${fontSize}px`;
+      
+      // Add event listeners
+      htmlSource.addEventListener('input', () => {
+        updatePreview();
+        updateStatusBar();
+        setUnsaved();
+      });
+      
+      togglePreviewBtn.addEventListener('click', togglePreview);
+      newBtn.addEventListener('click', newDocument);
+      openFile.addEventListener('change', loadHTML);
+      saveBtn.addEventListener('click', saveHTML);
+      cleanBtn.addEventListener('click', cleanHTML);
+      formatBtn.addEventListener('click', formatHTML);
+      convertEntitiesBtn.addEventListener('click', convertEntities);
+      formatBreaksBtn.addEventListener('click', formatTextBreaks);
+      wrapQuotesBtn.addEventListener('click', wrapSelectedTextWithQuotes);
+      copyTextBtn.addEventListener('click', copyAllText);
+      capitalizeAcronymsBtn.addEventListener('click', capitalizeAcronyms);
+      fontIncrease.addEventListener('click', () => changeFontSize(1));
+      fontDecrease.addEventListener('click', () => changeFontSize(-1));
+      shareBtn.addEventListener('click', shareOnFacebook);
+
+      
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        // Save: Ctrl+S
+        if (e.ctrlKey && e.key === 's') {
+          e.preventDefault();
+          saveHTML();
+        }
+        // New: Ctrl+N
+        if (e.ctrlKey && e.key === 'n') {
+          e.preventDefault();
+          newDocument();
+        }
+      });
+    }
+    
+    // Function to capitalize common acronyms
+    function capitalizeAcronyms() {
+      // Common acronyms to capitalize
+      const acronyms = [
+        'nato', 'nasa', 'fbi', 'cia', 'nsa', 'dod', 'doj', 'epa', 'fda', 'cdc', 
+        'who', 'un', 'eu', 'uk', 'usa', 'ussr', 'unicef', 'unesco', 'opec', 
+        'asean', 'nafta', 'apec', 'osha', 'irs', 'atf', 'dea', 'fema', 'tsa',
+        'cnn', 'bbc', 'npr', 'pbs', 'abc', 'nbc', 'cbs', 'hbo', 'espn',
+        'html', 'css', 'php', 'xml', 'json', 'ajax', 'api', 'sql', 'http', 'https',
+        'ftp', 'smtp', 'url', 'uri', 'cdn', 'dns', 'ip', 'tcp', 'udp', 'ssl', 'tls',
+        'vpn', 'lan', 'wan', 'wifi', 'ids', 'ips', 'dos', 'ddos', 'xss', 'csrf',
+        'ssd', 'hdd', 'ram', 'rom', 'cpu', 'gpu', 'usb', 'hdmi', 'lcd', 'led',
+        'ai', 'ml', 'ar', 'vr', 'iot', 'saas', 'paas', 'iaas', 'devops',
+        'ceo', 'cfo', 'cio', 'cto', 'coo', 'hr', 'pr', 'roi', 'kpi', 'seo',
+        'ppc', 'cpa', 'cpc', 'ctr', 'rpm', 'cpm', 'gdpr', 'hipaa',
+        'lgbtq', 'adhd', 'ptsd', 'aids', 'hiv', 'mrsa', 'msds', 'copd',
+        'evali' // From the example
+      ];
+      
+      // Create a pattern to match whole words that are acronyms
+      // This will match whole words only (with word boundaries)
+      const pattern = new RegExp('\\b(' + acronyms.join('|') + ')\\b', 'gi');
+      
+      // Get content from the source or preview (whichever is active)
+      const isSourceActive = document.activeElement === htmlSource;
+      let content;
+      
+      if (isSourceActive) {
+        content = htmlSource.value;
+      } else {
+        // If preview is active, sync changes to source first
+        syncToSource();
+        content = htmlSource.value;
+      }
+      
+      // Replace lowercase acronyms with uppercase versions
+      const updatedContent = content.replace(pattern, match => match.toUpperCase());
+      
+      // Update the editor content
+      htmlSource.value = updatedContent;
+      updatePreview();
+      updateStatusBar();
+      setUnsaved();
+      
+      showNotification('Acronyms capitalized');
+    }
+    
+    // Function to wrap selected text with special quotation marks
+    function wrapSelectedTextWithQuotes() {
+      const isSourceActive = document.activeElement === htmlSource;
+      
+      // If in preview, sync to source first
+      if (!isSourceActive) {
+        syncToSource();
+      }
+      
+      // Check for selection in source
+      const hasSelection = htmlSource.selectionStart !== htmlSource.selectionEnd;
+      
+      if (hasSelection) {
+        // There is a selection in source
+        const start = htmlSource.selectionStart;
+        const end = htmlSource.selectionEnd;
+        const selectedText = htmlSource.value.substring(start, end);
+        const wrappedText = `❝ ${selectedText} ❞`;
+        
+        htmlSource.value = 
+          htmlSource.value.substring(0, start) + 
+          wrappedText + 
+          htmlSource.value.substring(end);
+        
+        htmlSource.selectionStart = start;
+        htmlSource.selectionEnd = start + wrappedText.length;
+        
+        showNotification('Selection wrapped with quotes');
+      } else {
+        // No selection, find non-empty paragraphs and wrap only those with content
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlSource.value;
+        
+        // Find all paragraphs with actual content
+        const contentParagraphs = Array.from(tempDiv.querySelectorAll('p'))
+          .filter(p => p.textContent.trim() !== '');
+        
+        if (contentParagraphs.length > 0) {
+          // Check if content is already wrapped with quotes
+          const firstP = contentParagraphs[0];
+          const lastP = contentParagraphs[contentParagraphs.length - 1];
+          const contentStartsWithQuote = firstP.textContent.trim().startsWith('❝');
+          const contentEndsWithQuote = lastP.textContent.trim().endsWith('❞');
+          
+          if (!contentStartsWithQuote && !contentEndsWithQuote) {
+            // Add opening quote to first non-empty paragraph
+            const trimmedContent = firstP.textContent.trim();
+            firstP.textContent = firstP.textContent.replace(trimmedContent, `❝ ${trimmedContent}`);
+            
+            // Add closing quote to last non-empty paragraph
+            const lastTrimmedContent = lastP.textContent.trim();
+            lastP.textContent = lastP.textContent.replace(lastTrimmedContent, `${lastTrimmedContent} ❞`);
+            
+            // Update source
+            htmlSource.value = tempDiv.innerHTML;
+            showNotification('Content wrapped with quotes');
+          } else {
+            showNotification('Content already has quotes');
+          }
+        } else {
+          // No paragraphs with content, look for any text content
+          const textContent = tempDiv.textContent.trim();
+          
+          if (textContent && !textContent.includes('❝') && !textContent.includes('❞')) {
+            // Wrap entire content if there are no quotes already
+            htmlSource.value = `<p>❝ ${textContent} ❞</p>`;
+            showNotification('Content wrapped with quotes');
+          } else if (!textContent) {
+            showNotification('No content to wrap');
+          } else {
+            showNotification('Content already has quotes');
+          }
+        }
+      }
+      
+      // Update preview
+      updatePreview();
+      updateStatusBar();
+      setUnsaved();
+    }
+    
+    // Function to copy all text from the preview pane
+    function copyAllText() {
+      try {
+        const previewDocument = previewFrame.contentDocument || previewFrame.contentWindow.document;
+        
+        // Get just the text content from the preview
+        const textContent = previewDocument.body.innerText;
+        
+        // Create a temporary textarea element to copy from
+        const tempTextArea = document.createElement('textarea');
+        tempTextArea.value = textContent;
+        tempTextArea.setAttribute('readonly', '');
+        tempTextArea.style.position = 'absolute';
+        tempTextArea.style.left = '-9999px';
+        document.body.appendChild(tempTextArea);
+        
+        // Select and copy the text
+        tempTextArea.select();
+        document.execCommand('copy');
+        
+        // Remove the temporary element
+        document.body.removeChild(tempTextArea);
+        
+        showNotification('All text copied to clipboard');
+      } catch (e) {
+        console.error('Error copying text:', e);
+        showNotification('Failed to copy text');
+      }
+    }
+    
+    // Format text breaks - convert single line breaks to double line breaks
+    function formatTextBreaks() {
+      // Work with the current content
+      const previewDocument = previewFrame.contentDocument || previewFrame.contentWindow.document;
+      
+      // Check if there is any content in the editor
+      if (!htmlSource.value.trim()) {
+        showNotification('No content to format');
+        return;
+      }
+      
+      // First get the plain text content to preserve structure
+      const bodyContent = previewDocument.body.innerText;
+      
+      // Process the text breaks - convert single line breaks to double
+      let formattedText = bodyContent;
+      
+      // First normalize line endings
+      formattedText = formattedText.replace(/\r\n/g, '\n');
+      formattedText = formattedText.replace(/\r/g, '\n');
+      
+      // Then add an extra newline between single line breaks
+      formattedText = formattedText.replace(/([^\n])\n([^\n])/g, '$1\n\n$2');
+      
+      // Now convert to paragraphs
+      const paragraphs = formattedText.split(/\n\n+/);
+      const formattedHtml = paragraphs
+        .filter(p => p.trim()) // Remove empty paragraphs
+        .map(p => `<p>${p.trim()}</p>`)
+        .join('\n');
+      
+      // Update the editor
+      htmlSource.value = formattedHtml;
+      updatePreview();
+      updateStatusBar();
+      setUnsaved();
+      
+      showNotification('Line breaks formatted to paragraphs');
+    }
+    
+    // Update preview
+    function updatePreview() {
+      const previewDocument = previewFrame.contentDocument || previewFrame.contentWindow.document;
+      
+      // If the iframe's body doesn't exist yet, write the full structure
+      if (!previewDocument.body) {
+        previewDocument.open();
+        previewDocument.write('<!DOCTYPE html><html><head><style>body{font-family:sans-serif;padding:10px;}</style></head><body></body></html>');
+        previewDocument.close();
+      }
+      
+      // Efficiently update only the body content
+      // This prevents flickering and preserves scroll position
+      if (previewDocument.body.innerHTML !== htmlSource.value) {
+          previewDocument.body.innerHTML = htmlSource.value;
+      }
+
+      // Ensure design mode is on and event listeners are attached
+      if (previewDocument.designMode !== 'on') {
+        previewDocument.designMode = 'on';
+        previewDocument.addEventListener('input', debounce(syncToSource, 300));
+        previewDocument.addEventListener('paste', handlePaste);
+      }
+    }
+    
+// Handle paste events in the preview
+    function handlePaste(e) {
+      // Prevent the browser's default paste behavior
+      e.preventDefault();
+      
+      try {
+        const previewDocument = previewFrame.contentDocument || previewFrame.contentWindow.document;
+        
+        // Get the pasted content as plain text
+        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+        
+        // Convert newlines into paragraphs for clean insertion
+        const formattedText = text
+          .split(/\r?\n/)
+          .filter(p => p.trim())
+          .map(p => `<p>${p}</p>`)
+          .join('');
+          
+        if (formattedText) {
+          // Insert the clean HTML using the browser's command
+          execCommand(previewDocument, 'insertHTML', false, formattedText);
+        }
+      } catch (err) {
+        console.error('Error handling paste:', err);
+      }
+    }    
+    // Helper to safely execute commands
+    function execCommand(doc, command, showUI, value) {
+      try {
+        doc.execCommand(command, showUI, value);
+      } catch (e) {
+        console.error(`Error executing "${command}":`, e);
+      }
+    }
+    
+    // Sync changes from preview to source
+   // Start of syncToSource function
+function syncToSource() {
+  // Prevent circular updates
+  if (isUpdatingSource) return;
+  isUpdatingSource = true;
+  
+  try {
+    const previewDocument = previewFrame.contentDocument || previewFrame.contentWindow.document;
+    
+    // Get only the content between body tags, not the full HTML
+    let bodyContent = previewDocument.body.innerHTML;
+    
+    // Format the content properly - clean up paragraphs
+    bodyContent = formatParagraphs(bodyContent);
+    
+    // Update the source textarea ONLY if the content has changed.
+    // We DO NOT update the preview frame back again, as that is what causes the cursor jump.
+    if (bodyContent !== htmlSource.value) {
+      htmlSource.value = bodyContent;
+      updateStatusBar();
+      setUnsaved();
+    }
+  } finally {
+    isUpdatingSource = false;
+  }
+}
+// End of syncToSource function
+    
+    // Format paragraphs - remove blank lines and ensure proper structure
+    function formatParagraphs(html) {
+      // First handle direct text formatting
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+      
+      try {
+        // Find text nodes directly in the container that aren't just whitespace
+        const directTextNodes = [];
+        for (let i = 0; i < tempDiv.childNodes.length; i++) {
+          const node = tempDiv.childNodes[i];
+          if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== '') {
+            directTextNodes.push(node);
+          }
+        }
+        
+        // Wrap direct text nodes in paragraph tags
+        for (const node of directTextNodes) {
+          const p = document.createElement('p');
+          p.textContent = node.textContent;
+          tempDiv.replaceChild(p, node);
+        }
+        
+        // Remove any empty paragraph tags
+        Array.from(tempDiv.querySelectorAll('p'))
+          .filter(p => p.textContent.trim() === '')
+          .forEach(p => {
+            // Only remove if it doesn't have meaningful children (like images)
+            if (p.children.length === 0) {
+              p.remove();
+            }
+          });
+        
+        // Get the HTML with wrapped paragraphs
+        html = tempDiv.innerHTML;
+      } catch (e) {
+        console.error('Error formatting paragraphs:', e);
+      }
+      
+      // Now apply consistent formatting with newlines between paragraphs
+      return normalizeHtml(html);
+    }
+    
+    // Normalize HTML formatting for better readability
+    function normalizeHtml(html) {
+      let normalized = html;
+      
+      // First normalize all whitespace between elements
+      normalized = normalized.replace(/>\s+</g, '><');
+      
+      // Add newlines between specific elements for readability
+      normalized = normalized.replace(/<\/p><p>/g, '</p>\n<p>');
+      normalized = normalized.replace(/<\/div><div/g, '</div>\n<div');
+      normalized = normalized.replace(/<\/h([1-6])><h([1-6])/g, '</h$1>\n<h$2');
+      normalized = normalized.replace(/<\/li><li/g, '</li>\n<li');
+      normalized = normalized.replace(/<\/ul><ul/g, '</ul>\n<ul');
+      normalized = normalized.replace(/<\/ol><ol/g, '</ol>\n<ol');
+      normalized = normalized.replace(/<\/table><table/g, '</table>\n<table');
+      normalized = normalized.replace(/<\/tr><tr/g, '</tr>\n<tr');
+      
+      return normalized;
+    }
+    
+    // Format HTML with proper newlines but without other cleaning
+    function formatHTML() {
+      let formatted = htmlSource.value;
+      formatted = normalizeHtml(formatted);
+      htmlSource.value = formatted;
+      updatePreview();
+      updateStatusBar();
+      setUnsaved();
+      showNotification('HTML formatting applied');
+    }
+    
+    // Determine if two HTML strings are substantially different (not just whitespace/formatting)
+    function isSubstantiallyDifferent(html1, html2) {
+      // Create temporary elements to normalize the HTML
+      const temp1 = document.createElement('div');
+      const temp2 = document.createElement('div');
+      
+      temp1.innerHTML = html1;
+      temp2.innerHTML = html2;
+      
+      // Compare text content (ignores whitespace differences)
+      return temp1.textContent.trim() !== temp2.textContent.trim() || 
+             Math.abs(countElements(temp1) - countElements(temp2)) > 0;
+    }
+    
+    // Count elements in a container
+    function countElements(element) {
+      return element.querySelectorAll('*').length;
+    }
+    
+    // Update status bar
+    function updateStatusBar() {
+      charCount.textContent = `Characters: ${htmlSource.value.length}`;
+      lineCount.textContent = `Lines: ${htmlSource.value.split('\n').length}`;
+    }
+    
+    // Toggle preview pane
+    function togglePreview() {
+      showPreview = !showPreview;
+      
+      if (showPreview) {
+        previewContainer.style.width = '50%';
+        sourceContainer.style.width = '50%';
+        previewContainer.classList.remove('hidden');
+        togglePreviewBtn.textContent = 'Hide Preview';
+        updatePreview();
+      } else {
+        previewContainer.style.width = '0';
+        sourceContainer.style.width = '100%';
+        previewContainer.classList.add('hidden');
+        togglePreviewBtn.textContent = 'Show Preview';
+      }
+    }
+    
+    // Create new document
+    function newDocument() {
+      if (!isSaved) {
+        if (!confirm('You have unsaved changes. Create new document anyway?')) {
+          return;
+        }
+      }
+      
+      htmlSource.value = '<p>Start typing here...</p>';
+      currentFileName = 'untitled.html';
+      fileName.textContent = currentFileName;
+      updatePreview();
+      updateStatusBar();
+      setSaved();
+    }
+    
+    // Load HTML from file
+    function loadHTML(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        let content = e.target.result;
+        
+        // Try to extract only the body content if it's a full HTML document
+        if (content.includes('<body') && content.includes('</body>')) {
+          const bodyMatch = content.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+          if (bodyMatch && bodyMatch[1]) {
+            content = bodyMatch[1].trim();
+          }
+        }
+        
+        htmlSource.value = content;
+        currentFileName = file.name;
+        fileName.textContent = currentFileName;
+        updatePreview();
+        updateStatusBar();
+        setSaved();
+      };
+      reader.readAsText(file);
+      
+      // Reset file input to allow opening the same file again
+      openFile.value = '';
+    }
+    
+    // Save HTML to file
+    function saveHTML() {
+      const blob = new Blob([htmlSource.value], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      
+      const downloadLink = document.createElement('a');
+      downloadLink.href = url;
+      downloadLink.download = currentFileName;
+      downloadLink.style.display = 'none';
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      
+      setSaved();
+      URL.revokeObjectURL(url);
+    }
+    
+    // Clean HTML
+    function cleanHTML() {
+      // Basic cleaning - remove excessive whitespace
+      let cleaned = htmlSource.value
+        .replace(/\s+/g, ' ')
+        .replace(/>\s+</g, '><');
+      
+      // Handle &nbsp; entities 
+      cleaned = cleaned.replace(/&nbsp;/g, ' ');
+      
+      // Handle other common HTML entities
+      const tempDiv = document.createElement('textarea');
+      tempDiv.innerHTML = cleaned;
+      cleaned = tempDiv.value;
+      
+      // Additional formatting for paragraphs
+      cleaned = formatParagraphs(cleaned);
+      
+      // Apply normalized formatting
+      cleaned = normalizeHtml(cleaned);
+      
+      htmlSource.value = cleaned;
+      updatePreview();
+      updateStatusBar();
+      setUnsaved();
+      
+      showNotification('HTML cleaned and entities converted');
+    }
+    
+    // Convert HTML entities to characters
+    function convertEntities() {
+      // Create a temporary element to decode entities
+      const temp = document.createElement('textarea');
+      temp.innerHTML = htmlSource.value;
+      
+      // Get the decoded text and update the editor
+      htmlSource.value = temp.value;
+      updatePreview();
+      updateStatusBar();
+      setUnsaved();
+      
+      // Show conversion notification
+      showNotification('HTML entities converted to characters');
+    }
+    
+    // Change font size
+    function changeFontSize(delta) {
+      fontSize = Math.max(10, Math.min(24, fontSize + delta));
+      htmlSource.style.fontSize = `${fontSize}px`;
+    }
+    
+    // Save current selection/cursor position
+    function saveSelection(doc) {
+      if (doc.getSelection) {
+        const sel = doc.getSelection();
+        if (sel.rangeCount > 0) {
+          return sel.getRangeAt(0);
+        }
+      }
+      return null;
+    }
+    
+    // Restore selection/cursor position
+    function restoreSelection(doc, range) {
+      if (doc.getSelection && range) {
+        const sel = doc.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+    
+    // Set document as saved
+    function setSaved() {
+      isSaved = true;
+      saveStatus.classList.add('hidden');
+    }
+    
+    // Set document as unsaved
+    function setUnsaved() {
+      isSaved = false;
+      saveStatus.classList.remove('hidden');
+    }
+    
+    // Show temporary notification
+    function showNotification(message) {
+      // Create notification element if it doesn't exist
+      let notification = document.getElementById('notification');
+      if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'notification';
+        notification.style.position = 'fixed';
+        notification.style.bottom = '20px';
+        notification.style.right = '20px';
+        notification.style.padding = '10px 15px';
+        notification.style.backgroundColor = '#3b82f6';
+        notification.style.color = 'white';
+        notification.style.borderRadius = '4px';
+        notification.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.2)';
+        notification.style.transition = 'opacity 0.3s';
+        notification.style.zIndex = '1000';
+        document.body.appendChild(notification);
+      }
+      
+      // Show the notification with the message
+      notification.textContent = message;
+      notification.style.opacity = '1';
+      
+      // Hide after 3 seconds
+      setTimeout(() => {
+        notification.style.opacity = '0';
+      }, 3000);
+    }
+    
+    // Debounce helper function to limit rapid function calls
+    function debounce(func, wait) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+    // Function to share a URL on Facebook
+function shareOnFacebook() {
+  const urlToShare = shareUrl.value.trim();
+
+  // 1. Validate that the URL is not empty
+  if (!urlToShare) {
+    showNotification('Please paste a URL first.');
+    return;
+  }
+
+  // 2. Properly encode the URL to be used as a query parameter
+  // This is crucial to ensure special characters in the URL don't break the link.
+  const encodedUrl = encodeURIComponent(urlToShare);
+
+  // 3. Construct the final Facebook sharer URL
+  const facebookShareUrl = `https://www.facebook.com/sharer/?u=${encodedUrl}`;
+
+  // 4. Open the link in a new tab
+  window.open(facebookShareUrl, '_blank');
+}
+    
+    // Initialize editor when page loads
+    window.addEventListener('DOMContentLoaded', initEditor);
+  </script>
+</body>
+</html>
