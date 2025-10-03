@@ -9,14 +9,21 @@ It's designed for simplicity, speed, and convenience, allowing you to create and
 ## ✨ Features
 
 * **Works Offline:** The entire editor is a single `.html` file. Save it to your computer and use it anywhere, anytime.
-* **Live Preview:** See your rendered HTML content update in real-time as you type in the source editor. The preview pane is also directly editable.
+* **Live WYSIWYG Editing:** See your rendered HTML update in real-time as you type. The preview pane is also directly editable, with changes syncing back to the source code.
 * **File Management:** Create new documents, open existing `.html` files from your computer, and save your work locally.
-* **Rich Formatting Tools:**
-    * **Clean & Format HTML:** Tidy up messy code and apply consistent formatting.
-    * **Text Manipulation:** Convert HTML entities, format line breaks, wrap text in quotes, and copy all text to the clipboard.
-    * **Smart Capitalization:** Automatically capitalize common acronyms (e.g., NASA, HTML, CEO).
-* **Safety First:** The editor warns you if you try to close the page with unsaved changes, preventing accidental data loss.
-* **Social Sharing:** Includes a utility to quickly share an article URL on Facebook directly from the editor's toolbar.
+* **Powerful Editing & Formatting Tools:**
+    * **Text Case Converter:** Instantly change selected text to **Sentence case**, **lowercase**, **UPPERCASE**, or **Title Case**.
+    * **Smart Paste:** Automatically detects when a URL is pasted and places it in the URL utility field instead of the main text body, streamlining your workflow.
+    * **Code & Text Cleaning:** Tidy up messy code, apply consistent formatting, convert HTML entities, and reformat line breaks into proper paragraphs.
+    * **Smart Capitalization:** Automatically capitalize hundreds of common acronyms (e.g., NASA, HTML, CEO).
+* **Integrated URL Utilities:**
+    * **Social Sharing:** A dedicated field and button to quickly share an article URL on Facebook.
+    * **Archive.ph Link Generator:** Instantly create a clean, permanent `archive.ph` link from a URL, stripping away tracking parameters.
+* **Customizable Interface:**
+    * **Adjustable Font Size:** Increase or decrease the font size in the source editor for better readability.
+    * **Toggleable Preview:** Hide the preview pane to focus entirely on the source code.
+* **Keyboard Shortcuts:** Speed up your workflow with shortcuts for **Save** (`Ctrl+S`), **New** (`Ctrl+N`), **Clean HTML** (`Ctrl+Shift+C`), and **Wrap Quotes** (`Ctrl+Shift+Q`).
+* **Safety First:** The editor warns you if you try to create a new document with unsaved changes.
 * **No Dependencies:** No servers, no build steps, no installations. It just works.
 
 ## 🚀 How to Use
