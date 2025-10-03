@@ -219,10 +219,16 @@
     <button id="convertEntitiesBtn">Convert Entities</button>
     <button id="formatBreaksBtn">Format Line Breaks</button>
     <button id="capitalizeAcronymsBtn">CAPITALIZE Acronyms</button>
-    <button id="wrapQuotesBtn">❝ Wrap Quotes ❞</button>
-    <button id="copyTextBtn">Copy All Text</button>
-    
-    <div class="font-size-control">
+<button id="wrapQuotesBtn">❝ Wrap Quotes ❞</button>
+<button id="copyTextBtn">Copy All Text</button>
+
+<div class="button-group" style="border-left: 2px solid #9ca3af; padding-left: 1rem;">
+    <button id="sentenceCaseBtn" title="Convert selection to Sentence case">Sentence case</button>
+    <button id="lowerCaseBtn" title="Convert selection to lowercase">lowercase</button>
+    <button id="upperCaseBtn" title="Convert selection to UPPERCASE">UPPERCASE</button>
+    <button id="titleCaseBtn" title="Convert selection to Title Case">Title Case</button>
+</div>
+<div class="font-size-control">
       <button class="font-button" id="fontDecrease">-</button>
       <span>Font</span>
       <button class="font-button" id="fontIncrease">+</button>
@@ -230,9 +236,10 @@
     
     <button id="togglePreviewBtn">Hide Preview</button>
     <div style="margin-left: auto; display: flex; align-items: center; gap: 0.5rem;">
-      <input type="url" id="shareUrl" placeholder="Paste article URL here" style="padding: 0.4rem; border: 1px solid #d1d5db; border-radius: 0.25rem;">
-      <button id="shareBtn" title="Share the URL on Facebook">Share on FB</button>
-    </div>
+  <input type="url" id="shareUrl" placeholder="Paste article URL here" style="padding: 0.4rem; border: 1px solid #d1d5db; border-radius: 0.25rem;">
+  <button id="shareBtn" title="Share the URL on Facebook">Share on FB</button>
+  <button id="archiveBtn" title="Open a clean, archived version of the URL">Open Archive</button>
+</div>
   </div>
   
   <!-- Main editor -->
@@ -284,6 +291,12 @@
     const lineCount = document.getElementById('lineCount');
     const shareUrl = document.getElementById('shareUrl');
     const shareBtn = document.getElementById('shareBtn');
+    const archiveBtn = document.getElementById('archiveBtn');
+    const sentenceCaseBtn = document.getElementById('sentenceCaseBtn');
+const lowerCaseBtn = document.getElementById('lowerCaseBtn');
+const upperCaseBtn = document.getElementById('upperCaseBtn');
+const titleCaseBtn = document.getElementById('titleCaseBtn');
+
     
     // State variables
     let currentFileName = 'untitled.html';
@@ -294,9 +307,8 @@
     
     // Initialize editor
     function initEditor() {
-      // Set initial content
-      const defaultHTML = '<p>Start typing here...</p>';
-      htmlSource.value = defaultHTML;
+   // Set initial content
+htmlSource.value = '';
       updatePreview();
       updateStatusBar();
       htmlSource.style.fontSize = `${fontSize}px`;
@@ -322,6 +334,12 @@
       fontIncrease.addEventListener('click', () => changeFontSize(1));
       fontDecrease.addEventListener('click', () => changeFontSize(-1));
       shareBtn.addEventListener('click', shareOnFacebook);
+      archiveBtn.addEventListener('click', openArchiveUrl);
+      sentenceCaseBtn.addEventListener('click', () => changeCase('sentence'));
+lowerCaseBtn.addEventListener('click', () => changeCase('lower'));
+upperCaseBtn.addEventListener('click', () => changeCase('upper'));
+titleCaseBtn.addEventListener('click', () => changeCase('title'));
+
 
       
       // Keyboard shortcuts
@@ -776,7 +794,7 @@ function syncToSource() {
         }
       }
       
-      htmlSource.value = '<p>Start typing here...</p>';
+      htmlSource.value = '';
       currentFileName = 'untitled.html';
       fileName.textContent = currentFileName;
       updatePreview();
@@ -840,6 +858,9 @@ function syncToSource() {
       
       // Handle &nbsp; entities 
       cleaned = cleaned.replace(/&nbsp;/g, ' ');
+
+      // ** NEW **: Remove Reuters' "opens in new tab" text
+      cleaned = cleaned.replace(/, opens new tab/gi, '');
       
       // Handle other common HTML entities
       const tempDiv = document.createElement('textarea');
@@ -973,8 +994,80 @@ function shareOnFacebook() {
   window.open(facebookShareUrl, '_blank');
 }
     
-    // Initialize editor when page loads
-    window.addEventListener('DOMContentLoaded', initEditor);
+// Function to open a clean archive.ph URL
+function openArchiveUrl() {
+  const urlToArchive = shareUrl.value.trim();
+
+  // 1. Validate that the URL is not empty
+  if (!urlToArchive) {
+    showNotification('Please paste a URL first.');
+    return;
+  }
+
+  try {
+    // 2. Parse the URL to clean it
+    let url = new URL(urlToArchive);
+
+    // Remove query parameters and hash fragments
+    url.search = '';
+    url.hash = '';
+
+    const cleanedUrl = url.toString();
+
+    // 3. Construct the archive.ph URL
+    const archiveLink = `https://archive.ph/${cleanedUrl}`;
+
+    // 4. Open the link in a new tab
+    window.open(archiveLink, '_blank');
+
+  } catch (error) {
+    // Use the existing notification system for errors
+    showNotification("Invalid URL. Please check it and try again.");
+    console.error('URL parsing error:', error);
+  }
+}
+// Function to change the case of selected text in the preview pane
+function changeCase(caseType) {
+  const previewDocument = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  const selection = previewDocument.getSelection();
+
+  // 1. Check if any text is actually selected
+  if (!selection || selection.rangeCount === 0 || selection.toString().trim() === '') {
+    showNotification('Please select some text to change its case.');
+    return;
+  }
+
+  const selectedText = selection.toString();
+  let transformedText = '';
+
+  // 2. Apply the correct transformation based on the button clicked
+  switch (caseType) {
+    case 'sentence':
+      transformedText = selectedText.toLowerCase().replace(/(^\w{1})|([.?!]\s*\w{1})/g, char => char.toUpperCase());
+      break;
+    case 'lower':
+      transformedText = selectedText.toLowerCase();
+      break;
+    case 'upper':
+      transformedText = selectedText.toUpperCase();
+      break;
+    case 'title':
+      transformedText = selectedText.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+      break;
+  }
+
+  // 3. Replace the selected text with the transformed version
+  // This command is designed for rich text editors and preserves surrounding HTML
+  if (transformedText) {
+    previewDocument.execCommand('insertText', false, transformedText);
+    showNotification(`Text converted to ${caseType} case.`);
+    // Ensure the source view is updated
+    syncToSource();
+  }
+}
+
+// Initialize editor when page loads
+window.addEventListener('DOMContentLoaded', initEditor);
   </script>
 </body>
 </html>
