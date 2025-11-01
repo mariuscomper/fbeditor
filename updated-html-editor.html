@@ -219,8 +219,9 @@
     <button id="convertEntitiesBtn">Convert Entities</button>
     <button id="formatBreaksBtn">Format Line Breaks</button>
     <button id="capitalizeAcronymsBtn">CAPITALIZE Acronyms</button>
-<button id="wrapQuotesBtn">❝ Wrap Quotes ❞</button>
-<button id="copyTextBtn">Copy All Text</button>
+    <button id="undoCapsBtn" title="Undo last acronym capitalization">Undo Caps</button>
+    <button id="wrapQuotesBtn">❝ Wrap Quotes ❞</button>
+    <button id="copyTextBtn">Copy All Text</button>
 
 <div class="button-group" style="border-left: 2px solid #9ca3af; padding-left: 1rem;">
     <button id="sentenceCaseBtn" title="Convert selection to Sentence case">Sentence case</button>
@@ -293,9 +294,18 @@
     const shareBtn = document.getElementById('shareBtn');
     const archiveBtn = document.getElementById('archiveBtn');
     const sentenceCaseBtn = document.getElementById('sentenceCaseBtn');
-const lowerCaseBtn = document.getElementById('lowerCaseBtn');
-const upperCaseBtn = document.getElementById('upperCaseBtn');
-const titleCaseBtn = document.getElementById('titleCaseBtn');
+    const lowerCaseBtn = document.getElementById('lowerCaseBtn');
+    const upperCaseBtn = document.getElementById('upperCaseBtn');
+    const titleCaseBtn = document.getElementById('titleCaseBtn');
+    const undoCapsBtn = document.getElementById('undoCapsBtn');
+
+    // Inline elements that should preserve spacing when normalized
+    const inlineElements = new Set([
+      'a', 'abbr', 'acronym', 'b', 'bdo', 'cite', 'code', 'dfn', 'em', 'i', 'kbd',
+      'mark', 'q', 's', 'samp', 'small', 'span', 'strong', 'sub', 'sup', 'time',
+      'u', 'var', 'button', 'label', 'input', 'textarea', 'select', 'img', 'svg',
+      'path', 'use'
+    ]);
 
     
     // State variables
@@ -304,6 +314,7 @@ const titleCaseBtn = document.getElementById('titleCaseBtn');
     let fontSize = 14;
     let showPreview = true;
     let isUpdatingSource = false; // Flag to prevent circular updates
+    let lastCapitalizedContent = null;
     
     // Initialize editor
     function initEditor() {
@@ -315,6 +326,7 @@ htmlSource.value = '';
       
       // Add event listeners
       htmlSource.addEventListener('input', () => {
+        lastCapitalizedContent = null;
         updatePreview();
         updateStatusBar();
         setUnsaved();
@@ -331,14 +343,15 @@ htmlSource.value = '';
       wrapQuotesBtn.addEventListener('click', wrapSelectedTextWithQuotes);
       copyTextBtn.addEventListener('click', copyAllText);
       capitalizeAcronymsBtn.addEventListener('click', capitalizeAcronyms);
+      undoCapsBtn.addEventListener('click', undoCapitalizeAcronyms);
       fontIncrease.addEventListener('click', () => changeFontSize(1));
       fontDecrease.addEventListener('click', () => changeFontSize(-1));
       shareBtn.addEventListener('click', shareOnFacebook);
       archiveBtn.addEventListener('click', openArchiveUrl);
       sentenceCaseBtn.addEventListener('click', () => changeCase('sentence'));
-lowerCaseBtn.addEventListener('click', () => changeCase('lower'));
-upperCaseBtn.addEventListener('click', () => changeCase('upper'));
-titleCaseBtn.addEventListener('click', () => changeCase('title'));
+      lowerCaseBtn.addEventListener('click', () => changeCase('lower'));
+      upperCaseBtn.addEventListener('click', () => changeCase('upper'));
+      titleCaseBtn.addEventListener('click', () => changeCase('title'));
 
 
       
@@ -410,6 +423,13 @@ titleCaseBtn.addEventListener('click', () => changeCase('title'));
       
       // Replace lowercase acronyms with uppercase versions
       const updatedContent = content.replace(pattern, match => match.toUpperCase());
+
+      if (updatedContent === content) {
+        showNotification('No acronyms to capitalize');
+        return;
+      }
+
+      lastCapitalizedContent = content;
       
       // Update the editor content
       htmlSource.value = updatedContent;
@@ -418,6 +438,22 @@ titleCaseBtn.addEventListener('click', () => changeCase('title'));
       setUnsaved();
       
       showNotification('Acronyms capitalized');
+    }
+
+    function undoCapitalizeAcronyms() {
+      if (lastCapitalizedContent === null) {
+        showNotification('No caps changes to undo');
+        return;
+      }
+
+      htmlSource.value = lastCapitalizedContent;
+      updatePreview();
+      updateStatusBar();
+      setUnsaved();
+
+      lastCapitalizedContent = null;
+
+      showNotification('Acronym capitalization undone');
     }
     
     // Function to wrap selected text with special quotation marks
@@ -496,6 +532,7 @@ titleCaseBtn.addEventListener('click', () => changeCase('title'));
       }
       
       // Update preview
+      lastCapitalizedContent = null;
       updatePreview();
       updateStatusBar();
       setUnsaved();
@@ -564,6 +601,7 @@ titleCaseBtn.addEventListener('click', () => changeCase('title'));
       
       // Update the editor
       htmlSource.value = formattedHtml;
+      lastCapitalizedContent = null;
       updatePreview();
       updateStatusBar();
       setUnsaved();
@@ -660,6 +698,7 @@ function syncToSource() {
     // We DO NOT update the preview frame back again, as that is what causes the cursor jump.
     if (bodyContent !== htmlSource.value) {
       htmlSource.value = bodyContent;
+      lastCapitalizedContent = null;
       updateStatusBar();
       setUnsaved();
     }
@@ -668,6 +707,23 @@ function syncToSource() {
   }
 }
 // End of syncToSource function
+    
+    // Collapse whitespace between tags while keeping inline spacing intact
+    function collapseWhitespaceBetweenTags(html) {
+      return html.replace(
+        /(<\/?([a-zA-Z0-9:-]+)[^>]*>)(\s+)(<\/?([a-zA-Z0-9:-]+)[^>]*>)/g,
+        (match, leftTag, leftName, whitespace, rightTag, rightName) => {
+          const leftInline = inlineElements.has(leftName.toLowerCase());
+          const rightInline = inlineElements.has(rightName.toLowerCase());
+          
+          if (leftInline || rightInline) {
+            return `${leftTag} ${rightTag}`;
+          }
+          
+          return `${leftTag}\n${rightTag}`;
+        }
+      );
+    }
     
     // Format paragraphs - remove blank lines and ensure proper structure
     function formatParagraphs(html) {
@@ -701,6 +757,16 @@ function syncToSource() {
               p.remove();
             }
           });
+
+        // Unwrap span elements so their content remains but the tag is removed
+        Array.from(tempDiv.querySelectorAll('span')).forEach(span => {
+          const parent = span.parentNode;
+          if (!parent) return;
+          while (span.firstChild) {
+            parent.insertBefore(span.firstChild, span);
+          }
+          span.remove();
+        });
         
         // Get the HTML with wrapped paragraphs
         html = tempDiv.innerHTML;
@@ -716,18 +782,18 @@ function syncToSource() {
     function normalizeHtml(html) {
       let normalized = html;
       
-      // First normalize all whitespace between elements
-      normalized = normalized.replace(/>\s+</g, '><');
+      // Normalize whitespace between elements without dropping inline spacing
+      normalized = collapseWhitespaceBetweenTags(normalized);
       
       // Add newlines between specific elements for readability
-      normalized = normalized.replace(/<\/p><p>/g, '</p>\n<p>');
-      normalized = normalized.replace(/<\/div><div/g, '</div>\n<div');
-      normalized = normalized.replace(/<\/h([1-6])><h([1-6])/g, '</h$1>\n<h$2');
-      normalized = normalized.replace(/<\/li><li/g, '</li>\n<li');
-      normalized = normalized.replace(/<\/ul><ul/g, '</ul>\n<ul');
-      normalized = normalized.replace(/<\/ol><ol/g, '</ol>\n<ol');
-      normalized = normalized.replace(/<\/table><table/g, '</table>\n<table');
-      normalized = normalized.replace(/<\/tr><tr/g, '</tr>\n<tr');
+      normalized = normalized.replace(/<\/p>\s*<p>/g, '</p>\n<p>');
+      normalized = normalized.replace(/<\/div>\s*<div/g, '</div>\n<div');
+      normalized = normalized.replace(/<\/h([1-6])>\s*<h([1-6])/g, '</h$1>\n<h$2');
+      normalized = normalized.replace(/<\/li>\s*<li/g, '</li>\n<li');
+      normalized = normalized.replace(/<\/ul>\s*<ul/g, '</ul>\n<ul');
+      normalized = normalized.replace(/<\/ol>\s*<ol/g, '</ol>\n<ol');
+      normalized = normalized.replace(/<\/table>\s*<table/g, '</table>\n<table');
+      normalized = normalized.replace(/<\/tr>\s*<tr/g, '</tr>\n<tr');
       
       return normalized;
     }
@@ -737,6 +803,7 @@ function syncToSource() {
       let formatted = htmlSource.value;
       formatted = normalizeHtml(formatted);
       htmlSource.value = formatted;
+      lastCapitalizedContent = null;
       updatePreview();
       updateStatusBar();
       setUnsaved();
@@ -795,6 +862,7 @@ function syncToSource() {
       }
       
       htmlSource.value = '';
+      lastCapitalizedContent = null;
       currentFileName = 'untitled.html';
       fileName.textContent = currentFileName;
       updatePreview();
@@ -820,6 +888,7 @@ function syncToSource() {
         }
         
         htmlSource.value = content;
+        lastCapitalizedContent = null;
         currentFileName = file.name;
         fileName.textContent = currentFileName;
         updatePreview();
@@ -851,10 +920,12 @@ function syncToSource() {
     
     // Clean HTML
     function cleanHTML() {
-      // Basic cleaning - remove excessive whitespace
+      // Basic cleaning - normalize line endings and tidy spacing between tags
       let cleaned = htmlSource.value
-        .replace(/\s+/g, ' ')
-        .replace(/>\s+</g, '><');
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n');
+      
+      cleaned = collapseWhitespaceBetweenTags(cleaned);
       
       // Handle &nbsp; entities 
       cleaned = cleaned.replace(/&nbsp;/g, ' ');
@@ -874,6 +945,7 @@ function syncToSource() {
       cleaned = normalizeHtml(cleaned);
       
       htmlSource.value = cleaned;
+      lastCapitalizedContent = null;
       updatePreview();
       updateStatusBar();
       setUnsaved();
@@ -889,6 +961,7 @@ function syncToSource() {
       
       // Get the decoded text and update the editor
       htmlSource.value = temp.value;
+      lastCapitalizedContent = null;
       updatePreview();
       updateStatusBar();
       setUnsaved();
