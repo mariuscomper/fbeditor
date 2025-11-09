@@ -306,6 +306,7 @@
       'u', 'var', 'button', 'label', 'input', 'textarea', 'select', 'img', 'svg',
       'path', 'use'
     ]);
+    const urlRegex = /^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/i;
 
     
     // State variables
@@ -352,6 +353,7 @@ htmlSource.value = '';
       lowerCaseBtn.addEventListener('click', () => changeCase('lower'));
       upperCaseBtn.addEventListener('click', () => changeCase('upper'));
       titleCaseBtn.addEventListener('click', () => changeCase('title'));
+      document.addEventListener('paste', handleGlobalUrlPaste);
 
 
       
@@ -646,6 +648,29 @@ htmlSource.value = '';
       tempWrapper.appendChild(paragraph);
       return tempWrapper.innerHTML;
     }
+
+    function insertLinkFromUrl(url, { useSelection = true, skipSync = false } = {}) {
+      const previewDocument = previewFrame.contentDocument || previewFrame.contentWindow.document;
+      if (!previewDocument || !previewDocument.body) {
+        return;
+      }
+      
+      const linkHtml = buildLinkHtml(url);
+      try {
+        if (useSelection) {
+          execCommand(previewDocument, 'insertHTML', false, linkHtml);
+        } else {
+          previewDocument.body.insertAdjacentHTML('beforeend', linkHtml);
+        }
+      } catch (err) {
+        console.error('Error inserting link HTML:', err);
+        previewDocument.body.insertAdjacentHTML('beforeend', linkHtml);
+      }
+
+      if (!skipSync) {
+        syncToSource();
+      }
+    }
     
     // Handle paste events in the preview
     function handlePaste(e) {
@@ -658,16 +683,12 @@ htmlSource.value = '';
         // Get the pasted content as plain text
         const pastedText = (e.clipboardData || window.clipboardData).getData('text/plain').trim();
         
-        // Regular expression to check if the pasted text is a URL
-        const urlRegex = /^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/i;
-    
         // --- SMART PASTE LOGIC ---
         // If the pasted text is a URL, send it to the share input field and also insert a link
         if (urlRegex.test(pastedText)) {
           shareUrl.value = pastedText;
           showNotification('URL detected and added to share field!');
-          const linkHtml = buildLinkHtml(pastedText);
-          execCommand(previewDocument, 'insertHTML', false, linkHtml);
+          insertLinkFromUrl(pastedText, { useSelection: true, skipSync: true });
         } else {
           // If it's not a URL, treat it as normal text and format it into paragraphs
           const formattedText = pastedText
@@ -691,6 +712,33 @@ htmlSource.value = '';
       } catch (e) {
         console.error(`Error executing "${command}":`, e);
       }
+    }
+    
+    function handleGlobalUrlPaste(e) {
+      const target = e.target;
+      const tagName = target && target.tagName ? target.tagName.toLowerCase() : '';
+      const isEditableTarget =
+        target === htmlSource ||
+        target === shareUrl ||
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        (target && target.isContentEditable);
+
+      if (isEditableTarget) {
+        return;
+      }
+
+      const pastedText = (e.clipboardData || window.clipboardData).getData('text/plain').trim();
+      if (!pastedText || !urlRegex.test(pastedText)) {
+        return;
+      }
+
+      e.preventDefault();
+      shareUrl.value = pastedText;
+      showNotification('URL detected and added to share field!');
+      shareUrl.focus();
+      shareUrl.select();
+      insertLinkFromUrl(pastedText, { useSelection: false, skipSync: false });
     }
     
     // Sync changes from preview to source
